@@ -1,0 +1,9 @@
+databases:
+  - name: postgres_hr
+    type: POSTGRES
+    jdbcUrl: ${PROD_POSTGRES_HR_JDBC_URL}
+    username: ${PROD_POSTGRES_HR_USERNAME}
+    password: ${PROD_POSTGRES_HR_PASSWORD}
+  - name: mongo_logs
+    type: MONGODB
+    uri: ${PROD_MONGO_LOGS_URI}

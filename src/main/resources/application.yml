@@ -1,9 +1,14 @@
 spring:
   application:
     name: data-extraction-service
+  profiles:
+    active: local
 
 server:
   port: 8080
+
+dataextract:
+  dbConfig: classpath:dbConfig.yml
 
 management:
   endpoints:
@@ -17,6 +22,12 @@ management:
 pagination:
   defaultLimit: 1000
   maxLimit: 10000
+
+encryption:
+  secretKey: ${DATAEXTRACT_ENCRYPTION_KEY:change-this-local-secret}
+  salt: ${DATAEXTRACT_ENCRYPTION_SALT:change-this-local-salt}
+  iterations: 65536
+  keyLength: 256
 
 springdoc:
   swagger-ui:

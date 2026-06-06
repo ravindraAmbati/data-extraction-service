@@ -1,10 +1,12 @@
 package com.company.dataextract.service;
 
 import com.company.dataextract.config.DatabaseCatalog;
+import com.company.dataextract.config.DataExtractProperties;
 import com.company.dataextract.exception.ConnectionCreationException;
 import com.company.dataextract.exception.DatabaseNotFoundException;
 import com.company.dataextract.model.DatabaseConnectionConfig;
 import com.company.dataextract.model.DatabaseType;
+import com.company.dataextract.util.PasswordCryptoUtil;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.zaxxer.hikari.HikariConfig;
@@ -19,6 +21,9 @@ import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
@@ -29,9 +34,21 @@ public class ConnectionFactoryService {
     private final Map<String, DatabaseConnectionConfig> configs;
     private final Map<String, HikariDataSource> dataSources = new ConcurrentHashMap<>();
     private final Map<String, MongoClient> mongoClients = new ConcurrentHashMap<>();
+    private final PasswordCryptoUtil passwordCryptoUtil;
+    private final ResourceLoader resourceLoader;
+    private final DataExtractProperties dataExtractProperties;
+    private final Environment environment;
 
-    public ConnectionFactoryService() {
+    public ConnectionFactoryService(PasswordCryptoUtil passwordCryptoUtil,
+                                    ResourceLoader resourceLoader,
+                                    DataExtractProperties dataExtractProperties,
+                                    Environment environment) {
+        this.passwordCryptoUtil = passwordCryptoUtil;
+        this.resourceLoader = resourceLoader;
+        this.dataExtractProperties = dataExtractProperties;
+        this.environment = environment;
         this.configs = loadCatalog().getDatabases().stream()
+                .peek(this::resolvePlaceholders)
                 .collect(Collectors.toMap(DatabaseConnectionConfig::getName, config -> config));
         log.info("Loaded {} database connection configurations", configs.size());
     }
@@ -68,7 +85,7 @@ public class ConnectionFactoryService {
             hikari.setPoolName(config.getName() + "-pool");
             hikari.setJdbcUrl(config.getJdbcUrl());
             hikari.setUsername(config.getUsername());
-            hikari.setPassword(config.getPassword());
+            hikari.setPassword(passwordCryptoUtil.decryptIfEncrypted(config.getPassword()));
             hikari.setMaximumPoolSize(10);
             hikari.setMinimumIdle(1);
             log.info("Creating Hikari datasource for {}", config.getName());
@@ -81,10 +98,25 @@ public class ConnectionFactoryService {
     private DatabaseCatalog loadCatalog() {
         try {
             Yaml yaml = new Yaml(new Constructor(DatabaseCatalog.class));
-            return yaml.load(new ClassPathResource("dbConfig.yml").getInputStream());
+            Resource resource = resourceLoader.getResource(dataExtractProperties.getDbConfig());
+            if (!resource.exists()) {
+                resource = new ClassPathResource("dbConfig.yml");
+            }
+            return yaml.load(resource.getInputStream());
         } catch (IOException | RuntimeException ex) {
-            throw new ConnectionCreationException("Failed to load dbConfig.yml", ex);
+            throw new ConnectionCreationException("Failed to load database configuration", ex);
         }
+    }
+
+    private void resolvePlaceholders(DatabaseConnectionConfig config) {
+        config.setJdbcUrl(resolve(config.getJdbcUrl()));
+        config.setUsername(resolve(config.getUsername()));
+        config.setPassword(resolve(config.getPassword()));
+        config.setUri(resolve(config.getUri()));
+    }
+
+    private String resolve(String value) {
+        return value == null ? null : environment.resolvePlaceholders(value);
     }
 
     @PreDestroy

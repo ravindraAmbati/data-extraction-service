@@ -15,7 +15,7 @@
     <artifactId>data-extraction-service</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>data-extraction-service</name>
-    <description>Enterprise data extraction REST API</description>
+    <description>Enterprise Spring Boot service for extracting metadata, row counts, and paginated data from multiple database platforms through a unified REST API.</description>
 
     <properties>
         <java.version>11</java.version>

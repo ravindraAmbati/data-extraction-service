@@ -19,6 +19,9 @@ public class GlobalExceptionHandler {
         log.warn("Request failed: {}", ex.getMessage(), ex);
         HttpStatus status = ex instanceof DatabaseNotFoundException || ex instanceof TableNotFoundException
                 ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+        if (ex instanceof EncryptionException) {
+            status = HttpStatus.UNPROCESSABLE_ENTITY;
+        }
         return ResponseEntity.status(status).body(new ErrorResponse(ex.getCode(), ex.getMessage(), request.getRequestURI()));
     }
 

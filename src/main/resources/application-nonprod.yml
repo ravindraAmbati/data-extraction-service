@@ -1,0 +1,14 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+dataextract:
+  dbConfig: ${DATAEXTRACT_DB_CONFIG:classpath:dbConfig-nonprod.yml}
+
+logging:
+  level:
+    com.company.dataextract: INFO
+
+management:
+  endpoint:
+    health:
+      show-details: when_authorized

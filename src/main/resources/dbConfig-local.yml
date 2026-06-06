@@ -1,0 +1,9 @@
+databases:
+  - name: postgres_hr
+    type: POSTGRES
+    jdbcUrl: jdbc:postgresql://localhost:5432/hr
+    username: postgres
+    password: password
+  - name: mongo_logs
+    type: MONGODB
+    uri: mongodb://admin:password@localhost:27017/logs

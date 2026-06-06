@@ -1,0 +1,14 @@
+server:
+  port: 8080
+
+dataextract:
+  dbConfig: classpath:dbConfig-local.yml
+
+logging:
+  level:
+    com.company.dataextract: DEBUG
+
+management:
+  endpoint:
+    health:
+      show-details: always

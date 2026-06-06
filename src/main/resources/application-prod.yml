@@ -1,0 +1,15 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+dataextract:
+  dbConfig: ${DATAEXTRACT_DB_CONFIG:classpath:dbConfig-prod.yml}
+
+logging:
+  level:
+    root: WARN
+    com.company.dataextract: INFO
+
+management:
+  endpoint:
+    health:
+      show-details: never
