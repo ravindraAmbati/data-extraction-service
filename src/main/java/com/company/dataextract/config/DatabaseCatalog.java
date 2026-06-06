@@ -12,6 +12,6 @@ public class DatabaseCatalog {
     }
 
     public void setDatabases(List<DatabaseConnectionConfig> databases) {
-        this.databases = databases;
+        this.databases = databases == null ? new ArrayList<>() : databases;
     }
 }

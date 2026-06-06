@@ -102,9 +102,11 @@ public class ConnectionFactoryService {
             if (!resource.exists()) {
                 resource = new ClassPathResource("dbConfig.yml");
             }
-            return yaml.load(resource.getInputStream());
+            DatabaseCatalog catalog = yaml.load(resource.getInputStream());
+            return catalog == null ? new DatabaseCatalog() : catalog;
         } catch (IOException | RuntimeException ex) {
-            throw new ConnectionCreationException("Failed to load database configuration", ex);
+            log.warn("Database configuration could not be loaded. Application will start with no configured databases.", ex);
+            return new DatabaseCatalog();
         }
     }
 

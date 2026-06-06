@@ -1,9 +1,9 @@
 databases:
-  - name: postgres_hr
+  - name: covidreports
     type: POSTGRES
-    jdbcUrl: jdbc:postgresql://localhost:5432/hr
+    jdbcUrl: jdbc:postgresql://localhost:5432/covidreport
     username: postgres
-    password: password
+    password: postgres
   - name: postgres_sales
     type: POSTGRES
     jdbcUrl: jdbc:postgresql://localhost:5432/sales

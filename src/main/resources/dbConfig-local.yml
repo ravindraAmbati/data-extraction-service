@@ -1,9 +1,6 @@
 databases:
-  - name: postgres_hr
+  - name: covidreports
     type: POSTGRES
-    jdbcUrl: jdbc:postgresql://localhost:5432/hr
+    jdbcUrl: jdbc:postgresql://localhost:5432/covidreport
     username: postgres
-    password: password
-  - name: mongo_logs
-    type: MONGODB
-    uri: mongodb://admin:password@localhost:27017/logs
+    password: postgres

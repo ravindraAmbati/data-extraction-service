@@ -25,7 +25,7 @@ Prerequisites:
 
 - JDK 11 installed and available on `PATH`
 - Maven installed and available on `PATH`
-- Database engines reachable from this machine, or update `src/main/resources/dbConfig.yml` with reachable hosts
+- Database engines are optional at startup. Configure zero, one, or many connections in the active `dbConfig*.yml`.
 
 Build:
 
@@ -114,13 +114,13 @@ Use different `DATAEXTRACT_ENCRYPTION_KEY` and `DATAEXTRACT_ENCRYPTION_SALT` val
 
 ## Database Configuration
 
-Database connections are loaded from the profile-specific config location:
+Database connections are loaded from the profile-specific config location. Connections are not required for the application to start; APIs that target a missing database return `DATABASE_NOT_FOUND`.
 
 - local: `classpath:dbConfig-local.yml`
 - nonprod: `${DATAEXTRACT_DB_CONFIG}` or `classpath:dbConfig-nonprod.yml`
 - prod: `${DATAEXTRACT_DB_CONFIG}` or `classpath:dbConfig-prod.yml`
 
-The fallback shared example is `src/main/resources/dbConfig.yml`. Multiple named connections are supported per database type.
+The fallback shared example is `src/main/resources/dbConfig.yml`. The file may contain zero, one, or many named connections.
 
 Example encrypted password:
 
