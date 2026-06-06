@@ -1,0 +1,34 @@
+databases:
+  - name: postgres_hr
+    type: POSTGRES
+    jdbcUrl: jdbc:postgresql://localhost:5432/hr
+    username: postgres
+    password: password
+  - name: postgres_sales
+    type: POSTGRES
+    jdbcUrl: jdbc:postgresql://localhost:5432/sales
+    username: postgres
+    password: password
+  - name: mysql_inventory
+    type: MYSQL
+    jdbcUrl: jdbc:mysql://localhost:3306/inventory
+    username: root
+    password: password
+  - name: oracle_finance
+    type: ORACLE
+    jdbcUrl: jdbc:oracle:thin:@localhost:1521/XEPDB1
+    username: finance
+    password: password
+  - name: mssql_customer
+    type: MSSQL
+    jdbcUrl: jdbc:sqlserver://localhost:1433;databaseName=customer
+    username: sa
+    password: password
+  - name: teradata_dw
+    type: TERADATA
+    jdbcUrl: jdbc:teradata://server/database=dw
+    username: tduser
+    password: password
+  - name: mongo_logs
+    type: MONGODB
+    uri: mongodb://admin:password@localhost:27017/logs
