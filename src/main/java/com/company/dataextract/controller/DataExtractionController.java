@@ -1,10 +1,12 @@
 package com.company.dataextract.controller;
 
-import com.company.dataextract.dto.DataRequest;
+import com.company.dataextract.dto.DatabaseMetadataExtractResponse;
 import com.company.dataextract.dto.PaginatedDataResponse;
 import com.company.dataextract.dto.RowCountResponse;
 import com.company.dataextract.dto.TableMetadataResponse;
+import com.company.dataextract.exception.ApiDisabledException;
 import com.company.dataextract.service.DataExtractionService;
+import com.company.dataextract.service.ExtractMetadataService;
 import io.swagger.v3.oas.annotations.Operation;
 import java.util.List;
 import org.slf4j.Logger;
@@ -20,9 +22,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class DataExtractionController {
     private static final Logger log = LoggerFactory.getLogger(DataExtractionController.class);
     private final DataExtractionService service;
+    private final ExtractMetadataService extractMetadataService;
 
-    public DataExtractionController(DataExtractionService service) {
+    public DataExtractionController(DataExtractionService service, ExtractMetadataService extractMetadataService) {
         this.service = service;
+        this.extractMetadataService = extractMetadataService;
     }
 
     @GetMapping("/databases")
@@ -44,15 +48,21 @@ public class DataExtractionController {
         return service.getMetadata(database, table);
     }
 
+    @GetMapping("/{database}/metadata")
+    @Operation(summary = "Extract all table metadata for a database to the filesystem")
+    public DatabaseMetadataExtractResponse databaseMetadata(@PathVariable String database) {
+        log.info("Database metadata extract request database={}", database);
+        return extractMetadataService.extractDatabaseMetadata(database);
+    }
+
     @GetMapping("/{database}/{table}/rowscount")
-    @Operation(summary = "Get row count")
+    @Operation(summary = "Disabled: row count API is not available in ETL extract mode")
     public RowCountResponse rowCount(@PathVariable String database, @PathVariable String table) {
-        log.info("Row count request database={} table={}", database, table);
-        return service.getRowCount(database, table);
+        throw new ApiDisabledException("/api/dataextract/{database}/{table}/rowscount");
     }
 
     @GetMapping("/{database}/{table}/rows")
-    @Operation(summary = "Get paginated rows")
+    @Operation(summary = "Disabled: paginated rows API is not available in ETL extract mode")
     public PaginatedDataResponse rows(@PathVariable String database,
                                       @PathVariable String table,
                                       @RequestParam long offset,
@@ -60,13 +70,6 @@ public class DataExtractionController {
                                       @RequestParam(required = false) List<String> columns,
                                       @RequestParam(required = false) String sortBy,
                                       @RequestParam(required = false) String sortOrder) {
-        DataRequest request = new DataRequest();
-        request.setOffset(offset);
-        request.setLimit(limit);
-        request.setColumns(columns);
-        request.setSortBy(sortBy);
-        request.setSortOrder(sortOrder);
-        log.info("Rows request database={} table={} offset={} limit={}", database, table, offset, limit);
-        return service.getRows(database, table, request);
+        throw new ApiDisabledException("/api/dataextract/{database}/{table}/rows");
     }
 }

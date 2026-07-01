@@ -1,6 +1,7 @@
 package com.company.dataextract.strategy;
 
 import com.company.dataextract.model.DatabaseType;
+import com.company.dataextract.strategy.ibmdb2.IbmDb2DatabaseStrategy;
 import com.company.dataextract.strategy.mongo.MongoDatabaseStrategy;
 import com.company.dataextract.strategy.mssql.SqlServerDatabaseStrategy;
 import com.company.dataextract.strategy.mysql.MySqlDatabaseStrategy;
@@ -16,16 +17,19 @@ public class DatabaseStrategyFactory {
     private final SqlServerDatabaseStrategy sqlServer;
     private final OracleDatabaseStrategy oracle;
     private final TeradataDatabaseStrategy teradata;
+    private final IbmDb2DatabaseStrategy ibmDb2;
     private final MongoDatabaseStrategy mongo;
 
     public DatabaseStrategyFactory(PostgresDatabaseStrategy postgres, MySqlDatabaseStrategy mysql,
                                    SqlServerDatabaseStrategy sqlServer, OracleDatabaseStrategy oracle,
-                                   TeradataDatabaseStrategy teradata, MongoDatabaseStrategy mongo) {
+                                   TeradataDatabaseStrategy teradata, IbmDb2DatabaseStrategy ibmDb2,
+                                   MongoDatabaseStrategy mongo) {
         this.postgres = postgres;
         this.mysql = mysql;
         this.sqlServer = sqlServer;
         this.oracle = oracle;
         this.teradata = teradata;
+        this.ibmDb2 = ibmDb2;
         this.mongo = mongo;
     }
 
@@ -41,6 +45,8 @@ public class DatabaseStrategyFactory {
                 return oracle;
             case TERADATA:
                 return teradata;
+            case IBM_DB2:
+                return ibmDb2;
             case MONGODB:
                 return mongo;
             default:

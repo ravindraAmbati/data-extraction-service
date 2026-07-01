@@ -4,3 +4,7 @@ databases:
     jdbcUrl: jdbc:postgresql://localhost:5432/covidreport
     username: postgres
     password: postgres
+    domain-name: Source Data Dictionary
+    community-name: TO-Source
+    table-attributes: [Table Type, TableKind, Table Description, Column Count]
+    column-attributes: [Column Name, Data Type, DataType Description, ColumnLength, Nullable]

@@ -4,31 +4,73 @@ databases:
     jdbcUrl: jdbc:postgresql://localhost:5432/covidreport
     username: postgres
     password: postgres
+    domain-name: Source Data Dictionary
+    community-name: TO-Source
+    table-attributes: [Table Type, TableKind, Table Description, Column Count]
+    column-attributes: [Column Name, Data Type, DataType Description, ColumnLength, Nullable]
   - name: postgres_sales
     type: POSTGRES
     jdbcUrl: jdbc:postgresql://localhost:5432/sales
     username: postgres
     password: password
+    domain-name: Source Data Dictionary
+    community-name: TO-Source
+    table-attributes: [Table Type, TableKind, Table Description, Column Count]
+    column-attributes: [Column Name, Data Type, DataType Description, ColumnLength, Nullable]
   - name: mysql_inventory
     type: MYSQL
     jdbcUrl: jdbc:mysql://localhost:3306/inventory
     username: root
     password: password
+    domain-name: Source Data Dictionary
+    community-name: TO-Source
+    table-attributes: [Table Type, TableKind, Table Description, Column Count]
+    column-attributes: [Column Name, Data Type, DataType Description, ColumnLength, Nullable]
   - name: oracle_finance
     type: ORACLE
     jdbcUrl: jdbc:oracle:thin:@localhost:1521/XEPDB1
     username: finance
     password: password
+    domain-name: Source Data Dictionary
+    community-name: TO-Source
+    table-attributes: [Table Type, TableKind, Table Description, Column Count]
+    column-attributes: [Column Name, Data Type, DataType Description, ColumnLength, Nullable]
   - name: mssql_customer
     type: MSSQL
     jdbcUrl: jdbc:sqlserver://localhost:1433;databaseName=customer
     username: sa
     password: password
+    domain-name: Source Data Dictionary
+    community-name: TO-Source
+    table-attributes: [Table Type, TableKind, Table Description, Column Count]
+    column-attributes: [Column Name, Data Type, DataType Description, ColumnLength, Nullable]
   - name: teradata_dw
     type: TERADATA
     jdbcUrl: jdbc:teradata://server/database=dw
     username: tduser
     password: password
+    domain-name: Source Data Dictionary
+    community-name: TO-Source
+    table-attributes: [Table Type, TableKind, Table Description, Column Count, Index Type]
+    column-attributes: [Column Name, Data Type, DataType Description, ColumnLength, Nullable, ColumnFormat]
+  - name: ibm_db2_as400
+    type: IBM-DB2
+    driver-class-name: com.ibm.as400.access.AS400JDBCDriver
+    url: "jdbc:as400:{host}"
+    username: "{username}"
+    password: "{password}"
+    domain-name: Source Data Dictionary
+    community-name: TO-Source
+    table-attributes: [Table Type, TableKind, Table Description, Column Count]
+    column-attributes: [Column Name, Data Type, DataType Description, ColumnLength, Nullable, ColumnFormat]
+    hikari:
+      schema: "{schema}"
+    tomcat:
+      validation-query: SELECT 1
   - name: mongo_logs
     type: MONGODB
     uri: mongodb://admin:password@localhost:27017/logs
+    domain-name: Source Data Dictionary
+    community-name: TO-Source
+    table-attributes: [Table Type, TableKind, Collection Description, Column Count]
+    column-attributes: [Column Name, Data Type, DataType Description, Nullable]

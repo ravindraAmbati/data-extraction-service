@@ -4,6 +4,14 @@ databases:
     jdbcUrl: ${PROD_POSTGRES_HR_JDBC_URL}
     username: ${PROD_POSTGRES_HR_USERNAME}
     password: ${PROD_POSTGRES_HR_PASSWORD}
+    domain-name: ${PROD_DOMAIN_NAME:Source Data Dictionary}
+    community-name: ${PROD_COMMUNITY_NAME:TO-Source}
+    table-attributes: [Table Type, TableKind, Table Description, Column Count]
+    column-attributes: [Column Name, Data Type, DataType Description, ColumnLength, Nullable]
   - name: mongo_logs
     type: MONGODB
     uri: ${PROD_MONGO_LOGS_URI}
+    domain-name: ${PROD_DOMAIN_NAME:Source Data Dictionary}
+    community-name: ${PROD_COMMUNITY_NAME:TO-Source}
+    table-attributes: [Table Type, TableKind, Collection Description, Column Count]
+    column-attributes: [Column Name, Data Type, DataType Description, Nullable]

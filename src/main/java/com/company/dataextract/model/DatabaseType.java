@@ -6,5 +6,6 @@ public enum DatabaseType {
     MSSQL,
     ORACLE,
     TERADATA,
+    IBM_DB2,
     MONGODB
 }

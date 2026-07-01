@@ -1,6 +1,6 @@
 # Data Extraction Service
 
-Enterprise Spring Boot service for extracting metadata, row counts, and paginated data from multiple database platforms through a unified REST API.
+Enterprise Spring Boot ETL service for extracting and transforming metadata from multiple database platforms through a unified REST API. Load phase is planned for a later iteration.
 
 ## Tech Stack
 
@@ -10,6 +10,7 @@ Enterprise Spring Boot service for extracting metadata, row counts, and paginate
 - Spring Web
 - Spring JDBC
 - Spring Data MongoDB
+- IBM DB2 / AS400 JDBC via `net.sf.jt400:jt400`
 - HikariCP
 - Spring Boot Actuator
 - Spring Validation
@@ -122,6 +123,35 @@ Database connections are loaded from the profile-specific config location. Conne
 
 The fallback shared example is `src/main/resources/dbConfig.yml`. The file may contain zero, one, or many named connections.
 
+IBM DB2 / AS400 connection example:
+
+```yaml
+databases:
+  - name: ibm_db2_as400
+    type: IBM-DB2
+    driver-class-name: com.ibm.as400.access.AS400JDBCDriver
+    url: jdbc:as400:{host}
+    username: {username}
+    password: {password}
+    domain-name: Source Data Dictionary
+    community-name: TO-Source
+    table-attributes: [Table Type, TableKind, Table Description, Column Count]
+    column-attributes: [Column Name, Data Type, DataType Description, ColumnLength, Nullable]
+    hikari:
+      schema: {schema}
+    tomcat:
+      validation-query: SELECT 1
+```
+
+The `tomcat.validation-query` value is applied to HikariCP as `connectionTestQuery`.
+
+Transformation metadata fields can be configured on every database entry:
+
+- `domain-name`: domain name used in transformed Domain and Asset identifiers. Whitespace is allowed.
+- `community-name`: community name used in transformed identifiers. Whitespace is allowed.
+- `table-attributes`: table-level attributes to include in transformed table assets.
+- `column-attributes`: column-level attributes to include in transformed column assets.
+
 Example encrypted password:
 
 ```yaml
@@ -192,16 +222,51 @@ Response:
 - `GET /api/dataextract/databases`
 - `GET /api/dataextract/{database}/tables`
 - `GET /api/dataextract/{database}/{table}/metadata`
+- `GET /api/dataextract/{database}/metadata`
+
+The database-level metadata extract API orchestrates the existing extract APIs:
+
+1. Calls `GET /api/dataextract/{database}/tables`.
+2. Writes table names to `./{today-date}/{database-name}/tables.json`.
+3. Calls `GET /api/dataextract/{database}/{table}/metadata` for each table in parallel.
+4. Writes each table metadata response to `./{today-date}/{database-name}/{table-name}.json`.
+
+The output root defaults to the application working directory and can be changed with:
+
+```yaml
+dataextract:
+  extractOutputRoot: .
+```
+
+The row count and paginated row APIs are soft-disabled for ETL extract mode and return HTTP `410 Gone`:
+
 - `GET /api/dataextract/{database}/{table}/rowscount`
 - `GET /api/dataextract/{database}/{table}/rows?offset=0&limit=1000`
 
-Optional row query parameters:
+## Data Transformation APIs
 
-- `columns`
-- `sortBy`
-- `sortOrder`
+- `GET /api/datatransform/{database}/{table}/metadata`
+- `GET /api/datatransform/{database}/metadata`
 
-Full table extraction is intentionally unavailable. `offset` and `limit` are mandatory for row retrieval.
+The table-level transformation API reads extracted metadata from:
+
+```text
+./{today-date}/{database-name}/{table-name}.json
+```
+
+It returns a Collibra-style JSON resource array containing:
+
+- one `Domain` resource
+- one table `Asset`
+- one column `Asset` per extracted column
+
+The database-level transformation API reads:
+
+```text
+./{today-date}/{database-name}/tables.json
+```
+
+It then transforms each table in parallel by using the same table-level transformation logic and returns the combined resource array.
 
 ## Monitoring
 

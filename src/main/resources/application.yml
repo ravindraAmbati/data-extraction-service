@@ -9,6 +9,7 @@ server:
 
 dataextract:
   dbConfig: classpath:dbConfig.yml
+  extractOutputRoot: .
 
 management:
   endpoints:

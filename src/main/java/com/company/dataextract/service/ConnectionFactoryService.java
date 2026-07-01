@@ -12,6 +12,7 @@ import com.mongodb.client.MongoClients;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,7 +27,6 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.constructor.Constructor;
 
 @Service
 public class ConnectionFactoryService {
@@ -83,9 +83,18 @@ public class ConnectionFactoryService {
         try {
             HikariConfig hikari = new HikariConfig();
             hikari.setPoolName(config.getName() + "-pool");
-            hikari.setJdbcUrl(config.getJdbcUrl());
+            hikari.setJdbcUrl(config.effectiveJdbcUrl());
+            if (config.getDriverClassName() != null && !config.getDriverClassName().isBlank()) {
+                hikari.setDriverClassName(config.getDriverClassName());
+            }
             hikari.setUsername(config.getUsername());
             hikari.setPassword(passwordCryptoUtil.decryptIfEncrypted(config.getPassword()));
+            if (config.getHikari() != null && config.getHikari().getSchema() != null) {
+                hikari.setSchema(config.getHikari().getSchema());
+            }
+            if (config.getTomcat() != null && config.getTomcat().getValidationQuery() != null) {
+                hikari.setConnectionTestQuery(config.getTomcat().getValidationQuery());
+            }
             hikari.setMaximumPoolSize(10);
             hikari.setMinimumIdle(1);
             log.info("Creating Hikari datasource for {}", config.getName());
@@ -97,24 +106,109 @@ public class ConnectionFactoryService {
 
     private DatabaseCatalog loadCatalog() {
         try {
-            Yaml yaml = new Yaml(new Constructor(DatabaseCatalog.class));
+            Yaml yaml = new Yaml();
             Resource resource = resourceLoader.getResource(dataExtractProperties.getDbConfig());
             if (!resource.exists()) {
                 resource = new ClassPathResource("dbConfig.yml");
             }
-            DatabaseCatalog catalog = yaml.load(resource.getInputStream());
-            return catalog == null ? new DatabaseCatalog() : catalog;
+            Map<String, Object> raw = yaml.load(resource.getInputStream());
+            return toCatalog(raw);
         } catch (IOException | RuntimeException ex) {
             log.warn("Database configuration could not be loaded. Application will start with no configured databases.", ex);
             return new DatabaseCatalog();
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private DatabaseCatalog toCatalog(Map<String, Object> raw) {
+        DatabaseCatalog catalog = new DatabaseCatalog();
+        if (raw == null || raw.get("databases") == null) {
+            return catalog;
+        }
+        List<DatabaseConnectionConfig> databases = new ArrayList<>();
+        for (Map<String, Object> entry : (List<Map<String, Object>>) raw.get("databases")) {
+            DatabaseConnectionConfig config = new DatabaseConnectionConfig();
+            config.setName(text(entry.get("name")));
+            config.setType(databaseType(text(entry.get("type"))));
+            config.setJdbcUrl(text(entry.get("jdbcUrl")));
+            config.setUrl(text(entry.get("url")));
+            config.setUsername(text(entry.get("username")));
+            config.setPassword(text(entry.get("password")));
+            config.setUri(text(entry.get("uri")));
+            config.setDriverClassName(text(first(entry, "driverClassName", "driver-class-name")));
+            config.setDomainName(text(first(entry, "domainName", "domain-name")));
+            config.setCommunityName(text(first(entry, "communityName", "community-name")));
+            config.setTableAttributes(stringList(first(entry, "tableAttributes", "table-attributes")));
+            config.setColumnAttributes(stringList(first(entry, "columnAttributes", "column-attributes")));
+
+            Map<String, Object> hikari = nested(entry, "hikari");
+            if (hikari != null) {
+                DatabaseConnectionConfig.HikariSettings settings = new DatabaseConnectionConfig.HikariSettings();
+                settings.setSchema(text(hikari.get("schema")));
+                config.setHikari(settings);
+            }
+
+            Map<String, Object> tomcat = nested(entry, "tomcat");
+            if (tomcat != null) {
+                DatabaseConnectionConfig.TomcatSettings settings = new DatabaseConnectionConfig.TomcatSettings();
+                settings.setValidationQuery(text(first(tomcat, "validationQuery", "validation-query")));
+                config.setTomcat(settings);
+            }
+            databases.add(config);
+        }
+        catalog.setDatabases(databases);
+        return catalog;
+    }
+
+    private Object first(Map<String, Object> source, String first, String second) {
+        return source.containsKey(first) ? source.get(first) : source.get(second);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> nested(Map<String, Object> source, String key) {
+        Object value = source.get(key);
+        return value instanceof Map ? (Map<String, Object>) value : null;
+    }
+
+    private String text(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> stringList(Object value) {
+        if (value == null) {
+            return new ArrayList<>();
+        }
+        if (value instanceof List) {
+            return ((List<Object>) value).stream().map(String::valueOf).collect(Collectors.toList());
+        }
+        return List.of(String.valueOf(value));
+    }
+
+    private DatabaseType databaseType(String value) {
+        if (value == null) {
+            throw new ConnectionCreationException("Database type is required", null);
+        }
+        return DatabaseType.valueOf(value.trim().replace('-', '_'));
+    }
+
     private void resolvePlaceholders(DatabaseConnectionConfig config) {
         config.setJdbcUrl(resolve(config.getJdbcUrl()));
+        config.setUrl(resolve(config.getUrl()));
         config.setUsername(resolve(config.getUsername()));
         config.setPassword(resolve(config.getPassword()));
         config.setUri(resolve(config.getUri()));
+        config.setDriverClassName(resolve(config.getDriverClassName()));
+        config.setDomainName(resolve(config.getDomainName()));
+        config.setCommunityName(resolve(config.getCommunityName()));
+        config.setTableAttributes(config.getTableAttributes().stream().map(this::resolve).collect(Collectors.toList()));
+        config.setColumnAttributes(config.getColumnAttributes().stream().map(this::resolve).collect(Collectors.toList()));
+        if (config.getHikari() != null) {
+            config.getHikari().setSchema(resolve(config.getHikari().getSchema()));
+        }
+        if (config.getTomcat() != null) {
+            config.getTomcat().setValidationQuery(resolve(config.getTomcat().getValidationQuery()));
+        }
     }
 
     private String resolve(String value) {

@@ -22,6 +22,12 @@ public class GlobalExceptionHandler {
         if (ex instanceof EncryptionException) {
             status = HttpStatus.UNPROCESSABLE_ENTITY;
         }
+        if (ex instanceof ApiDisabledException) {
+            status = HttpStatus.GONE;
+        }
+        if (ex instanceof TransformException) {
+            status = HttpStatus.UNPROCESSABLE_ENTITY;
+        }
         return ResponseEntity.status(status).body(new ErrorResponse(ex.getCode(), ex.getMessage(), request.getRequestURI()));
     }
 
