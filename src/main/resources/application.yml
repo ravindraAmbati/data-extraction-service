@@ -10,6 +10,18 @@ server:
 dataextract:
   dbConfig: classpath:dbConfig.yml
   extractOutputRoot: .
+  extractOutputFolder: extract
+  transformOutputFolder: transform
+
+collibra:
+  host: ${COLLIBRA_HOST:localhost}
+  port: ${COLLIBRA_PORT:443}
+  api:
+    path: ${COLLIBRA_API:/rest/2.0}
+    endpoint: ${COLLIBRA_ENDPOINT:/import/json-job}
+  username: ${COLLIBRA_USERNAME:}
+  password: ${COLLIBRA_PASSWORD:}
+  ssl: ${COLLIBRA_SSL:true}
 
 management:
   endpoints:

@@ -4,6 +4,11 @@ databases:
     jdbcUrl: jdbc:postgresql://localhost:5432/covidreport
     username: postgres
     password: postgres
+    metadata-query: >
+      SELECT column_name, data_type, is_nullable AS nullable
+      FROM information_schema.columns
+      WHERE table_name IN (?, ?)
+      ORDER BY ordinal_position
     domain-name: Source Data Dictionary
     community-name: TO-Source
     table-attributes: [Table Type, TableKind, Table Description, Column Count]

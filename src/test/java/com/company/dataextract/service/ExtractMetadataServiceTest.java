@@ -26,9 +26,9 @@ class ExtractMetadataServiceTest {
     void extractsTablesAndMetadataToDatedDatabaseDirectory() {
         DataExtractionService dataExtractionService = mock(DataExtractionService.class);
         when(dataExtractionService.listTables("postgres_hr")).thenReturn(Arrays.asList("employees", "departments"));
-        when(dataExtractionService.getMetadata("postgres_hr", "employees"))
+        when(dataExtractionService.getMetadata("postgres_hr", "default.employees"))
                 .thenReturn(metadata("postgres_hr", "employees", "id"));
-        when(dataExtractionService.getMetadata("postgres_hr", "departments"))
+        when(dataExtractionService.getMetadata("postgres_hr", "default.departments"))
                 .thenReturn(metadata("postgres_hr", "departments", "department_id"));
 
         DataExtractProperties properties = new DataExtractProperties();
@@ -38,11 +38,11 @@ class ExtractMetadataServiceTest {
 
         DatabaseMetadataExtractResponse response = service.extractDatabaseMetadata("postgres_hr");
 
-        Path outputDir = tempDir.resolve(LocalDate.now().toString()).resolve("postgres_hr");
+        Path outputDir = tempDir.resolve(LocalDate.now().toString()).resolve("postgres_hr").resolve("extract");
         assertEquals(2, response.getTableCount());
         assertTrue(Files.exists(outputDir.resolve("tables.json")));
-        assertTrue(Files.exists(outputDir.resolve("employees.json")));
-        assertTrue(Files.exists(outputDir.resolve("departments.json")));
+        assertTrue(Files.exists(outputDir.resolve("default").resolve("employees.json")));
+        assertTrue(Files.exists(outputDir.resolve("default").resolve("departments.json")));
         assertEquals(Collections.emptyList(), response.getFailures());
         assertEquals(2, response.getMetadataFiles().size());
     }

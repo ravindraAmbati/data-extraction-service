@@ -147,10 +147,23 @@ The `tomcat.validation-query` value is applied to HikariCP as `connectionTestQue
 
 Transformation metadata fields can be configured on every database entry:
 
+- `metadata-query`: optional SQL query used instead of JDBC `DatabaseMetaData` for table metadata.
 - `domain-name`: domain name used in transformed Domain and Asset identifiers. Whitespace is allowed.
 - `community-name`: community name used in transformed identifiers. Whitespace is allowed.
 - `table-attributes`: table-level attributes to include in transformed table assets.
 - `column-attributes`: column-level attributes to include in transformed column assets.
+
+Custom metadata query example:
+
+```yaml
+metadata-query: >
+  SELECT column_name, data_type, is_nullable AS nullable
+  FROM information_schema.columns
+  WHERE table_name IN (?, ?)
+  ORDER BY ordinal_position
+```
+
+The query should return column aliases compatible with `column_name`, `data_type`, and `nullable`. It receives two parameters: the requested table name and the simple table name without schema.
 
 Example encrypted password:
 
@@ -221,21 +234,27 @@ Response:
 
 - `GET /api/dataextract/databases`
 - `GET /api/dataextract/{database}/tables`
-- `GET /api/dataextract/{database}/{table}/metadata`
 - `GET /api/dataextract/{database}/metadata`
+- `GET /api/dataextract/{database}/{schema}/metadata`
+- `GET /api/dataextract/{database}/{schema}/{table}/metadata`
 
-The database-level metadata extract API orchestrates the existing extract APIs:
+Extract reads metadata from configured source databases and stores raw extract JSON in local storage.
 
-1. Calls `GET /api/dataextract/{database}/tables`.
-2. Writes table names to `./{today-date}/{database-name}/tables.json`.
-3. Calls `GET /api/dataextract/{database}/{table}/metadata` for each table in parallel.
-4. Writes each table metadata response to `./{today-date}/{database-name}/{table-name}.json`.
+Local extract storage:
+
+```text
+./{today-date}/{database-name}/extract/tables.json
+./{today-date}/{database-name}/extract/{schema-name}/tables.json
+./{today-date}/{database-name}/extract/{schema-name}/{table-name}.json
+```
 
 The output root defaults to the application working directory and can be changed with:
 
 ```yaml
 dataextract:
   extractOutputRoot: .
+  extractOutputFolder: extract
+  transformOutputFolder: transform
 ```
 
 The row count and paginated row APIs are soft-disabled for ETL extract mode and return HTTP `410 Gone`:
@@ -245,28 +264,72 @@ The row count and paginated row APIs are soft-disabled for ETL extract mode and 
 
 ## Data Transformation APIs
 
-- `GET /api/datatransform/{database}/{table}/metadata`
-- `GET /api/datatransform/{database}/metadata`
+- `GET /api/transform/{database}/metadata`
+- `GET /api/transform/{database}/{schema}/metadata`
+- `GET /api/transform/{database}/{schema}/{table}/metadata`
 
-The table-level transformation API reads extracted metadata from:
+Transform always calls Extract first, then reads raw extract JSON from local storage and writes Collibra-formatted JSON to local transform storage. Transform API responses return file paths only.
 
-```text
-./{today-date}/{database-name}/{table-name}.json
-```
-
-It returns a Collibra-style JSON resource array containing:
+The Collibra-formatted JSON contains:
 
 - one `Domain` resource
+- one schema `Asset`
 - one table `Asset`
 - one column `Asset` per extracted column
 
-The database-level transformation API reads:
+Local transform storage:
 
 ```text
-./{today-date}/{database-name}/tables.json
+./{today-date}/{database-name}/transform/metadata.json
+./{today-date}/{database-name}/transform/{schema-name}/metadata.json
+./{today-date}/{database-name}/transform/{schema-name}/{table-name}.json
 ```
 
-It then transforms each table in parallel by using the same table-level transformation logic and returns the combined resource array.
+## Data Load APIs
+
+- `POST /api/load/{database}/metadata`
+- `POST /api/load/{database}/{schema}/metadata`
+- `POST /api/load/{database}/{schema}/{table}/metadata`
+
+Load always calls Transform first, and Transform calls Extract first. Load then reads the transformed Collibra-formatted JSON from local storage and posts it to Collibra as `multipart/form-data` with:
+
+- `file`: actual JSON file content
+- `filename`: JSON file name
+
+Load responses include:
+
+- Collibra target URL
+- HTTP status and response body
+- transformed JSON file used
+- extract JSON files referred during the chain
+
+Collibra API configuration is read from `application.yml` using nested YAML property syntax:
+
+```yaml
+collibra:
+  host: ${COLLIBRA_HOST:localhost}
+  port: ${COLLIBRA_PORT:443}
+  api:
+    path: ${COLLIBRA_API:/rest/2.0}
+    endpoint: ${COLLIBRA_ENDPOINT:/import/json-job}
+  username: ${COLLIBRA_USERNAME:}
+  password: ${COLLIBRA_PASSWORD:}
+  ssl: ${COLLIBRA_SSL:true}
+```
+
+The final target URL is built as:
+
+```text
+{http|https}://{host}:{port}/{api.path}/{api.endpoint}
+```
+
+## Clear Local Storage APIs
+
+- `DELETE /api/clear/{database}/metadata`
+- `DELETE /api/clear/{database}/{schema}/metadata`
+- `DELETE /api/clear/{database}/{schema}/{table}/metadata`
+
+Clear removes both Extract and Transform local storage for the requested scope.
 
 ## Monitoring
 

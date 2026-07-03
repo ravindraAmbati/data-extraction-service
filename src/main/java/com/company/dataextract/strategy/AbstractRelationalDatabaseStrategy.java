@@ -27,6 +27,10 @@ public abstract class AbstractRelationalDatabaseStrategy implements DatabaseStra
     @Override
     public TableMetadataResponse getMetadata(DatabaseConnectionConfig config, String tableName) {
         String safeTable = SqlIdentifierValidator.requireSafe(tableName, "table");
+        if (config.getMetadataQuery() != null && !config.getMetadataQuery().isBlank()) {
+            return new TableMetadataResponse(config.getName(), tableName,
+                    repository.getColumnsByQuery(dataSource(config), config.getMetadataQuery(), safeTable));
+        }
         return new TableMetadataResponse(config.getName(), tableName, repository.getColumns(dataSource(config), safeTable));
     }
 

@@ -27,10 +27,11 @@ class DataTransformServiceTest {
     @Test
     void transformsExtractedTableMetadataIntoDomainTableAndColumnAssets() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
-        Path databaseDir = tempDir.resolve(LocalDate.now().toString()).resolve("postgres_hr");
-        Files.createDirectories(databaseDir);
-        objectMapper.writeValue(databaseDir.resolve("tables.json").toFile(), Arrays.asList("employees"));
-        objectMapper.writeValue(databaseDir.resolve("employees.json").toFile(),
+        Path databaseDir = tempDir.resolve(LocalDate.now().toString()).resolve("postgres_hr").resolve("extract");
+        Path schemaDir = databaseDir.resolve("public");
+        Files.createDirectories(schemaDir);
+        objectMapper.writeValue(databaseDir.resolve("tables.json").toFile(), Arrays.asList("public.employees"));
+        objectMapper.writeValue(schemaDir.resolve("employees.json").toFile(),
                 new TableMetadataResponse("postgres_hr", "employees",
                         Arrays.asList(new ColumnMetadata("id", "BIGINT", false))));
 
@@ -51,22 +52,30 @@ class DataTransformServiceTest {
         DataExtractProperties properties = new DataExtractProperties();
         properties.setExtractOutputRoot(tempDir.toString());
 
-        DataTransformService service = new DataTransformService(objectMapper, properties, connectionFactoryService);
-        List<Map<String, Object>> resources = service.transformDatabaseMetadata("postgres_hr");
+        ExtractMetadataService extractMetadataService = mock(ExtractMetadataService.class);
+        DataTransformService service = new DataTransformService(objectMapper, properties, connectionFactoryService, extractMetadataService);
+        service.transformTableMetadata("postgres_hr", "public", "employees");
+        List<Map<String, Object>> resources = service.buildTableResources("postgres_hr", "public", "employees");
 
-        assertEquals(3, resources.size());
+        assertEquals(4, resources.size());
         assertEquals("Domain", resources.get(0).get("resourceType"));
         assertEquals("Asset", resources.get(1).get("resourceType"));
         assertEquals("Asset", resources.get(2).get("resourceType"));
+        assertEquals("Asset", resources.get(3).get("resourceType"));
 
-        Map<String, Object> tableIdentifier = cast(resources.get(1).get("identifier"));
+        Map<String, Object> schemaIdentifier = cast(resources.get(1).get("identifier"));
+        assertEquals("public", schemaIdentifier.get("name"));
+
+        Map<String, Object> tableIdentifier = cast(resources.get(2).get("identifier"));
         assertEquals("public.employees", tableIdentifier.get("name"));
 
-        Map<String, Object> columnIdentifier = cast(resources.get(2).get("identifier"));
+        Map<String, Object> columnIdentifier = cast(resources.get(3).get("identifier"));
         assertEquals("public.employees.id", columnIdentifier.get("name"));
 
-        Map<String, Object> columnAttributes = cast(resources.get(2).get("attributes"));
+        Map<String, Object> columnAttributes = cast(resources.get(3).get("attributes"));
         assertTrue(columnAttributes.containsKey("DataType Description"));
+        assertTrue(Files.exists(tempDir.resolve(LocalDate.now().toString()).resolve("postgres_hr")
+                .resolve("transform").resolve("public").resolve("employees.json")));
     }
 
     @SuppressWarnings("unchecked")

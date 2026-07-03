@@ -12,6 +12,7 @@ public class DatabaseConnectionConfig {
     private String password;
     private String uri;
     private String driverClassName;
+    private String metadataQuery;
     private String domainName;
     private String communityName;
     private List<String> tableAttributes = new ArrayList<>();
@@ -36,6 +37,8 @@ public class DatabaseConnectionConfig {
     public void setUri(String uri) { this.uri = uri; }
     public String getDriverClassName() { return driverClassName; }
     public void setDriverClassName(String driverClassName) { this.driverClassName = driverClassName; }
+    public String getMetadataQuery() { return metadataQuery; }
+    public void setMetadataQuery(String metadataQuery) { this.metadataQuery = metadataQuery; }
     public String getDomainName() { return domainName; }
     public void setDomainName(String domainName) { this.domainName = domainName; }
     public String getCommunityName() { return communityName; }

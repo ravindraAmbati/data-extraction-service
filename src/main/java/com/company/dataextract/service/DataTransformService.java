@@ -2,12 +2,14 @@ package com.company.dataextract.service;
 
 import com.company.dataextract.config.DataExtractProperties;
 import com.company.dataextract.dto.ColumnMetadata;
+import com.company.dataextract.dto.FilePathResponse;
 import com.company.dataextract.dto.TableMetadataResponse;
 import com.company.dataextract.exception.TransformException;
 import com.company.dataextract.model.DatabaseConnectionConfig;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
@@ -17,7 +19,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -30,44 +31,90 @@ public class DataTransformService {
     private final ObjectMapper objectMapper;
     private final DataExtractProperties dataExtractProperties;
     private final ConnectionFactoryService connectionFactoryService;
+    private final ExtractMetadataService extractMetadataService;
 
     public DataTransformService(ObjectMapper objectMapper,
                                 DataExtractProperties dataExtractProperties,
-                                ConnectionFactoryService connectionFactoryService) {
+                                ConnectionFactoryService connectionFactoryService,
+                                ExtractMetadataService extractMetadataService) {
         this.objectMapper = objectMapper;
         this.dataExtractProperties = dataExtractProperties;
         this.connectionFactoryService = connectionFactoryService;
+        this.extractMetadataService = extractMetadataService;
     }
 
-    public List<Map<String, Object>> transformDatabaseMetadata(String database) {
-        Path databaseDirectory = databaseDirectory(database);
+    public FilePathResponse transformDatabaseMetadata(String database) {
+        extractMetadataService.extractDatabaseMetadata(database);
+        Path databaseDirectory = extractDatabaseDirectory(database);
         List<String> tables = read(databaseDirectory.resolve("tables.json"), new TypeReference<List<String>>() {});
-        List<Map<String, Object>> transformed = new CopyOnWriteArrayList<>();
+        List<String> files = new CopyOnWriteArrayList<>();
+        List<Map<String, Object>> combined = new CopyOnWriteArrayList<>();
         tables.parallelStream()
-                .map(table -> transformTableMetadata(database, table))
-                .forEach(transformed::addAll);
-        return new ArrayList<>(transformed);
+                .map(table -> {
+                    String schema = table != null && table.contains(".") ? schemaNameFromTable(table) : "default";
+                    String simpleTable = simpleTableName(table);
+                    Path file = writeTransformedTable(database, schema, simpleTable);
+                    combined.addAll(read(file, new TypeReference<List<Map<String, Object>>>() {}));
+                    return file.toString();
+                })
+                .forEach(files::add);
+        Collections.sort(files);
+        Path databaseFile = transformedDatabaseFile(database);
+        write(databaseFile, combined);
+        return new FilePathResponse("TRANSFORM", database, null, null, Collections.singletonList(databaseFile.toString()));
     }
 
-    public List<Map<String, Object>> transformTableMetadata(String database, String table) {
+    public FilePathResponse transformSchemaMetadata(String database, String schema) {
+        extractMetadataService.extractSchemaMetadata(database, schema);
+        List<String> tables = read(extractSchemaDirectory(database, schema).resolve("tables.json"), new TypeReference<List<String>>() {});
+        List<String> files = new CopyOnWriteArrayList<>();
+        List<Map<String, Object>> combined = new CopyOnWriteArrayList<>();
+        tables.parallelStream()
+                .map(table -> {
+                    Path file = writeTransformedTable(database, schema, table);
+                    combined.addAll(read(file, new TypeReference<List<Map<String, Object>>>() {}));
+                    return file.toString();
+                })
+                .forEach(files::add);
+        Collections.sort(files);
+        Path schemaFile = transformSchemaDirectory(database, schema).resolve("metadata.json");
+        write(schemaFile, combined);
+        return new FilePathResponse("TRANSFORM", database, schema, null, Collections.singletonList(schemaFile.toString()));
+    }
+
+    public FilePathResponse transformTableMetadata(String database, String schema, String table) {
+        extractMetadataService.extractTableMetadata(database, schema, table);
+        Path outputFile = writeTransformedTable(database, schema, table);
+        return new FilePathResponse("TRANSFORM", database, schema, table, Collections.singletonList(outputFile.toString()));
+    }
+
+    public List<Map<String, Object>> buildTableResources(String database, String schema, String table) {
         DatabaseConnectionConfig config = connectionFactoryService.getConfig(database);
-        Path tableMetadataFile = databaseDirectory(database).resolve(safeFileName(table) + ".json");
+        Path tableMetadataFile = extractTableFile(database, schema, table);
         TableMetadataResponse metadata = read(tableMetadataFile, new TypeReference<TableMetadataResponse>() {});
 
         String domainName = valueOrDefault(config.getDomainName(), DEFAULT_DOMAIN);
         String communityName = valueOrDefault(config.getCommunityName(), DEFAULT_COMMUNITY);
-        String schemaName = schemaName(config, metadata.getTable());
+        String schemaName = schemaName(config, schema, metadata.getTable());
         String tableName = simpleTableName(metadata.getTable());
         String tableQualifiedName = schemaName + "." + tableName;
 
         List<Map<String, Object>> resources = new ArrayList<>();
         resources.add(domainResource(domainName, communityName));
+        resources.add(schemaAsset(domainName, communityName, schemaName));
         resources.add(tableAsset(domainName, communityName, schemaName, tableName, metadata, config.getTableAttributes()));
 
         for (ColumnMetadata column : metadata.getColumns() == null ? Collections.<ColumnMetadata>emptyList() : metadata.getColumns()) {
             resources.add(columnAsset(domainName, communityName, tableQualifiedName, column, config.getColumnAttributes()));
         }
         return resources;
+    }
+
+    private Path writeTransformedTable(String database, String schema, String table) {
+        List<Map<String, Object>> resources = buildTableResources(database, schema, table);
+        Path file = transformedTableFile(database, schema, table);
+        write(file, resources);
+        return file;
     }
 
     private Map<String, Object> domainResource(String domainName, String communityName) {
@@ -77,6 +124,19 @@ public class DataTransformService {
                 "name", domainName,
                 "community", mapOf("name", communityName)));
         resource.put("type", mapOf("name", "Data Asset Domain"));
+        return resource;
+    }
+
+    private Map<String, Object> schemaAsset(String domainName, String communityName, String schemaName) {
+        Map<String, Object> resource = new LinkedHashMap<>();
+        resource.put("resourceType", "Asset");
+        resource.put("identifier", mapOf(
+                "name", schemaName,
+                "domain", domainIdentifier(domainName, communityName)));
+        resource.put("type", mapOf("name", "Schema"));
+        resource.put("attributes", attributes(mapOfString(
+                "Schema Name", schemaName,
+                "Schema Type", "Database Schema")));
         return resource;
     }
 
@@ -155,7 +215,10 @@ public class DataTransformService {
         return mapOf("name", domainName, "community", mapOf("name", communityName));
     }
 
-    private String schemaName(DatabaseConnectionConfig config, String tableName) {
+    private String schemaName(DatabaseConnectionConfig config, String schema, String tableName) {
+        if (schema != null && !schema.isBlank()) {
+            return schema;
+        }
         if (tableName != null && tableName.contains(".")) {
             return tableName.substring(0, tableName.lastIndexOf('.'));
         }
@@ -172,10 +235,46 @@ public class DataTransformService {
         return tableName;
     }
 
-    private Path databaseDirectory(String database) {
-        return Paths.get(dataExtractProperties.getExtractOutputRoot(), LocalDate.now().toString(), safeFileName(database))
+    private Path extractDatabaseDirectory(String database) {
+        return Paths.get(dataExtractProperties.getExtractOutputRoot(), LocalDate.now().toString(), safeFileName(database),
+                        dataExtractProperties.getExtractOutputFolder())
                 .toAbsolutePath()
                 .normalize();
+    }
+
+    private Path extractSchemaDirectory(String database, String schema) {
+        return extractDatabaseDirectory(database).resolve(safeFileName(schema)).toAbsolutePath().normalize();
+    }
+
+    public Path extractTableFile(String database, String schema, String table) {
+        return extractSchemaDirectory(database, schema).resolve(safeFileName(table) + ".json").toAbsolutePath().normalize();
+    }
+
+    public Path transformDatabaseDirectory(String database) {
+        return Paths.get(dataExtractProperties.getExtractOutputRoot(), LocalDate.now().toString(), safeFileName(database),
+                        dataExtractProperties.getTransformOutputFolder())
+                .toAbsolutePath()
+                .normalize();
+    }
+
+    public Path transformSchemaDirectory(String database, String schema) {
+        return transformDatabaseDirectory(database).resolve(safeFileName(schema)).toAbsolutePath().normalize();
+    }
+
+    public Path transformedTableFile(String database, String schema, String table) {
+        return transformSchemaDirectory(database, schema).resolve(safeFileName(table) + ".json");
+    }
+
+    public Path transformedSchemaFile(String database, String schema) {
+        return transformSchemaDirectory(database, schema).resolve("metadata.json");
+    }
+
+    public Path transformedDatabaseFile(String database) {
+        return transformDatabaseDirectory(database).resolve("metadata.json");
+    }
+
+    private String schemaNameFromTable(String table) {
+        return table.substring(0, table.lastIndexOf('.'));
     }
 
     private <T> T read(Path file, TypeReference<T> type) {
@@ -183,6 +282,15 @@ public class DataTransformService {
             return objectMapper.readValue(file.toFile(), type);
         } catch (IOException ex) {
             throw new TransformException("Failed to read transform input file " + file, ex);
+        }
+    }
+
+    private void write(Path file, Object payload) {
+        try {
+            Files.createDirectories(file.getParent());
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(file.toFile(), payload);
+        } catch (IOException ex) {
+            throw new TransformException("Failed to write transformed metadata file " + file, ex);
         }
     }
 
@@ -201,6 +309,13 @@ public class DataTransformService {
         for (int i = 0; i < values.length; i += 2) {
             map.put(String.valueOf(values[i]), values[i + 1]);
         }
+        return map;
+    }
+
+    private Map<String, String> mapOfString(String key1, String value1, String key2, String value2) {
+        Map<String, String> map = new LinkedHashMap<>();
+        map.put(key1, value1);
+        map.put(key2, value2);
         return map;
     }
 }

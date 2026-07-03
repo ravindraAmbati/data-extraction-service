@@ -28,6 +28,9 @@ public class GlobalExceptionHandler {
         if (ex instanceof TransformException) {
             status = HttpStatus.UNPROCESSABLE_ENTITY;
         }
+        if (ex instanceof LoadException) {
+            status = HttpStatus.BAD_GATEWAY;
+        }
         return ResponseEntity.status(status).body(new ErrorResponse(ex.getCode(), ex.getMessage(), request.getRequestURI()));
     }
 

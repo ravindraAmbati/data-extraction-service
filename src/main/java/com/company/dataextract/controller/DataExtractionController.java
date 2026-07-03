@@ -1,9 +1,9 @@
 package com.company.dataextract.controller;
 
 import com.company.dataextract.dto.DatabaseMetadataExtractResponse;
+import com.company.dataextract.dto.FilePathResponse;
 import com.company.dataextract.dto.PaginatedDataResponse;
 import com.company.dataextract.dto.RowCountResponse;
-import com.company.dataextract.dto.TableMetadataResponse;
 import com.company.dataextract.exception.ApiDisabledException;
 import com.company.dataextract.service.DataExtractionService;
 import com.company.dataextract.service.ExtractMetadataService;
@@ -41,18 +41,28 @@ public class DataExtractionController {
         return service.listTables(database);
     }
 
-    @GetMapping("/{database}/{table}/metadata")
-    @Operation(summary = "Get table metadata")
-    public TableMetadataResponse metadata(@PathVariable String database, @PathVariable String table) {
-        log.info("Metadata request database={} table={}", database, table);
-        return service.getMetadata(database, table);
-    }
-
     @GetMapping("/{database}/metadata")
     @Operation(summary = "Extract all table metadata for a database to the filesystem")
     public DatabaseMetadataExtractResponse databaseMetadata(@PathVariable String database) {
         log.info("Database metadata extract request database={}", database);
         return extractMetadataService.extractDatabaseMetadata(database);
+    }
+
+    @GetMapping("/{database}/{schema}/metadata")
+    @Operation(summary = "Extract schema metadata to the filesystem")
+    public DatabaseMetadataExtractResponse schemaMetadata(@PathVariable String database, @PathVariable String schema) {
+        log.info("Schema metadata extract request database={} schema={}", database, schema);
+        return extractMetadataService.extractSchemaMetadata(database, schema);
+    }
+
+    @GetMapping("/{database}/{schema}/{table}/metadata")
+    @Operation(summary = "Extract table metadata to the filesystem")
+    public FilePathResponse tableMetadata(@PathVariable String database,
+                                          @PathVariable String schema,
+                                          @PathVariable String table) {
+        log.info("Table metadata extract request database={} schema={} table={}", database, schema, table);
+        return new FilePathResponse("EXTRACT", database, schema, table,
+                java.util.Collections.singletonList(extractMetadataService.extractTableMetadata(database, schema, table).toString()));
     }
 
     @GetMapping("/{database}/{table}/rowscount")

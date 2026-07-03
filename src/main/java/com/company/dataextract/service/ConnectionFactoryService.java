@@ -136,6 +136,7 @@ public class ConnectionFactoryService {
             config.setPassword(text(entry.get("password")));
             config.setUri(text(entry.get("uri")));
             config.setDriverClassName(text(first(entry, "driverClassName", "driver-class-name")));
+            config.setMetadataQuery(text(first(entry, "metadataQuery", "metadata-query")));
             config.setDomainName(text(first(entry, "domainName", "domain-name")));
             config.setCommunityName(text(first(entry, "communityName", "community-name")));
             config.setTableAttributes(stringList(first(entry, "tableAttributes", "table-attributes")));
@@ -199,6 +200,7 @@ public class ConnectionFactoryService {
         config.setPassword(resolve(config.getPassword()));
         config.setUri(resolve(config.getUri()));
         config.setDriverClassName(resolve(config.getDriverClassName()));
+        config.setMetadataQuery(resolve(config.getMetadataQuery()));
         config.setDomainName(resolve(config.getDomainName()));
         config.setCommunityName(resolve(config.getCommunityName()));
         config.setTableAttributes(config.getTableAttributes().stream().map(this::resolve).collect(Collectors.toList()));
